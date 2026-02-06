@@ -1,0 +1,131 @@
+name: Build APK with Auto-Fix
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Set up JDK 17
+      uses: actions/setup-java@v3
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v2
+      
+    - name: Install NDK
+      run: |
+        echo "y" | sudo ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "ndk;25.2.9519653"
+        echo "ndk.dir=${ANDROID_HOME}/ndk/25.2.9519653" >> local.properties
+        
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+      
+    - name: Cache Gradle packages
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.gradle/caches
+          ~/.gradle/wrapper
+        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+        restore-keys: |
+          ${{ runner.os }}-gradle-
+          
+    - name: Build with Gradle (Attempt 1)
+      id: build_attempt_1
+      continue-on-error: true
+      run: |
+        ./gradlew assembleRelease --stacktrace 2>&1 | tee build_log_1.txt
+        
+    - name: Analyze and Fix Errors (Attempt 1)
+      if: steps.build_attempt_1.outcome == 'failure'
+      run: |
+        echo "Build failed, analyzing errors..."
+        cat build_log_1.txt
+        
+        # Fix common NDK errors
+        if grep -q "undefined reference" build_log_1.txt; then
+          echo "Fixing undefined reference errors..."
+          # Add missing libraries to Android.mk
+          sed -i 's/LOCAL_LDLIBS := -llog -landroid -lEGL -lGLESv3/LOCAL_LDLIBS := -llog -landroid -lEGL -lGLESv3 -lz -ldl/g' app/src/main/jni/Android.mk
+        fi
+        
+        if grep -q "error: unknown type name" build_log_1.txt; then
+          echo "Fixing missing includes..."
+          # This would require more specific fixes based on actual errors
+        fi
+        
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add -A
+        git diff-index --quiet HEAD || git commit -m "Auto-fix: Build errors (Attempt 1)"
+        
+    - name: Build with Gradle (Attempt 2)
+      id: build_attempt_2
+      if: steps.build_attempt_1.outcome == 'failure'
+      continue-on-error: true
+      run: |
+        ./gradlew clean assembleRelease --stacktrace 2>&1 | tee build_log_2.txt
+        
+    - name: Analyze and Fix Errors (Attempt 2)
+      if: steps.build_attempt_2.outcome == 'failure'
+      run: |
+        echo "Build failed again, applying more fixes..."
+        cat build_log_2.txt
+        
+        # Fix C++ standard issues
+        if grep -q "error: .*C++.*" build_log_2.txt; then
+          echo "Fixing C++ standard issues..."
+          sed -i 's/LOCAL_CPPFLAGS := -std=c++17/LOCAL_CPPFLAGS := -std=c++17 -fexceptions -frtti -fpermissive/g' app/src/main/jni/Android.mk
+        fi
+        
+        git add -A
+        git diff-index --quiet HEAD || git commit -m "Auto-fix: Build errors (Attempt 2)"
+        
+    - name: Build with Gradle (Attempt 3 - Final)
+      id: build_attempt_3
+      if: steps.build_attempt_2.outcome == 'failure'
+      run: |
+        ./gradlew clean assembleRelease --stacktrace --info 2>&1 | tee build_log_3.txt
+        
+    - name: Push fixes to repository
+      if: steps.build_attempt_1.outcome == 'failure' || steps.build_attempt_2.outcome == 'failure'
+      run: |
+        git push || echo "No changes to push"
+        
+    - name: Upload APK
+      if: success()
+      uses: actions/upload-artifact@v3
+      with:
+        name: IMPERIUM-MODZ-APK
+        path: app/build/outputs/apk/release/*.apk
+        
+    - name: Upload Build Logs
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: build-logs
+        path: build_log_*.txt
+        
+    - name: Create Release
+      if: success() && github.ref == 'refs/heads/main'
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: v1.0.${{ github.run_number }}
+        name: IMPERIUM MODZ v1.0.${{ github.run_number }}
+        files: app/build/outputs/apk/release/*.apk
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

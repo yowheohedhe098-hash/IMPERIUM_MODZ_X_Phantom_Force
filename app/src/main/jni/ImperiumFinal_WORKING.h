@@ -181,41 +181,41 @@ void InstallWorkingHooks() {
     LOGI("Installing ONLY VERIFIED & WORKING hooks...");
     
     // 1. Speed Hack
-    DobbyHook((void*)0x2ed3040, (void*)hook_GetMoveSpeedForFPPMode, 
+    DobbyHook((void*)(_Libil2cpp.startAddress + 0x2ed3040), (void*)hook_GetMoveSpeedForFPPMode, 
               (void**)&orig_GetMoveSpeedForFPPMode);
     LOGI("[1/7] Speed Hack - INSTALLED");
     
     // 2. Spin Boot
-    DobbyHook((void*)0x7eedf7c, (void*)hook_GetRotationYawByDiretion, 
+    DobbyHook((void*)(_Libil2cpp.startAddress + 0x7eedf7c), (void*)hook_GetRotationYawByDiretion, 
               (void**)&orig_GetRotationYawByDiretion);
     LOGI("[2/7] Spin Boot - INSTALLED");
     
     // 3. Zoom Hack
-    DobbyHook((void*)0x2e59468, (void*)hook_GetWeaponZoomAmplifier, 
+    DobbyHook((void*)(_Libil2cpp.startAddress + 0x2e59468), (void*)hook_GetWeaponZoomAmplifier, 
               (void**)&orig_GetWeaponZoomAmplifier);
     LOGI("[3/7] Zoom Hack - INSTALLED");
     
     // 4. Wallhack (3 hooks)
-    DobbyHook((void*)0x5a150c8, (void*)hook_EnableShowPlayerOutline, 
+    DobbyHook((void*)(_Libil2cpp.startAddress + 0x5a150c8), (void*)hook_EnableShowPlayerOutline, 
               (void**)&orig_EnableShowPlayerOutline);
-    DobbyHook((void*)0x3713318, (void*)hook_ShowPlayerOutline, 
+    DobbyHook((void*)(_Libil2cpp.startAddress + 0x3713318), (void*)hook_ShowPlayerOutline, 
               (void**)&orig_ShowPlayerOutline);
-    DobbyHook((void*)0x5a15184, (void*)hook_EnableShowTeamOutline, 
+    DobbyHook((void*)(_Libil2cpp.startAddress + 0x5a15184), (void*)hook_EnableShowTeamOutline, 
               (void**)&orig_EnableShowTeamOutline);
     LOGI("[4/7] Wallhack (Outline) - INSTALLED (3 hooks)");
     
     // 5. Auto Pickup
-    DobbyHook((void*)0x4e21724, (void*)hook_CanAutoPickUp, 
+    DobbyHook((void*)(_Libil2cpp.startAddress + 0x4e21724), (void*)hook_CanAutoPickUp, 
               (void**)&orig_CanAutoPickUp);
     LOGI("[5/7] Auto Pickup - INSTALLED");
     
     // 6. Big Radar
-    DobbyHook((void*)0x5a10ccc, (void*)hook_GetMinimapMode, 
+    DobbyHook((void*)(_Libil2cpp.startAddress + 0x5a10ccc), (void*)hook_GetMinimapMode, 
               (void**)&orig_GetMinimapMode);
     LOGI("[6/7] Big Radar - INSTALLED");
     
     // 7. Night Mode OFF
-    DobbyHook((void*)0x844307c, (void*)hook_GetNightMode, 
+    DobbyHook((void*)(_Libil2cpp.startAddress + 0x844307c), (void*)hook_GetNightMode, 
               (void**)&orig_GetNightMode);
     LOGI("[7/7] Night Mode OFF - INSTALLED");
     
