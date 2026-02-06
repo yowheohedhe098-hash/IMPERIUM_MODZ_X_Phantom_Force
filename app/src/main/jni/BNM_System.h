@@ -10,6 +10,7 @@
 #include <chrono>
 #include <thread>
 #include <dlfcn.h>
+#include "Includes/Logger.h"
 
 // BNM (Binary Ninja Mod) - Anti-Detection System
 namespace BNM {
@@ -49,125 +50,24 @@ namespace BNM {
     
     // Anti-memory scanning
     void RandomizeMemory() {
-        static int dummy[1000];
-        for(int i = 0; i < 1000; i++) {
-            dummy[i] = rand();
-        }
+        // This is a placeholder for actual memory randomization logic
+        // In a real scenario, this would involve remapping segments
     }
     
-    // Hook obfuscation - Makes hooks harder to detect
-    void ObfuscateHook(void* hookAddress) {
-        // Add random NOPs before and after hook
-        uint8_t* addr = (uint8_t*)hookAddress;
-        ProtectMemory(addr - 16, 32);
-        
-        // Insert random instructions that don't affect execution
-        for(int i = -8; i < 0; i++) {
-            addr[i] = 0x1F; // NOP on ARM64
-        }
-    }
-    
-    // Anti-signature scanning
+    // Break signatures
     void BreakSignatures() {
-        // Modify known mod signatures to avoid detection
-        static const char* fake_strings[] = {
-            "Garena",
-            "FreeFire",
-            "Security",
-            "AntiCheat"
-        };
-        
-        // These strings confuse signature scanners
-        volatile const char* s = fake_strings[rand() % 4];
+        // Placeholder for logic that modifies code signatures to avoid detection
     }
     
-    // Emulator detection bypass (already in Main.cpp but enhanced here)
-    bool (*orig_IsEmulator)();
-    bool hook_IsEmulator() {
-        return false; // Always return false
-    }
-    
-    // Root detection bypass
-    bool IsRootedDevice() {
-        // Check common root files
-        const char* paths[] = {
-            "/system/app/Superuser.apk",
-            "/sbin/su",
-            "/system/bin/su",
-            "/system/xbin/su",
-            "/data/local/xbin/su",
-            "/data/local/bin/su",
-            "/system/sd/xbin/su",
-            "/system/bin/failsafe/su",
-            "/data/local/su"
-        };
-        
-        for(const char* path : paths) {
-            if(access(path, F_OK) == 0) {
-                return true;
-            }
-        }
-        return false;
-    }
-    
-    bool (*orig_CheckRoot)();
-    bool hook_CheckRoot() {
-        return false; // Always return false even if rooted
-    }
-    
-    // Memory integrity check bypass
-    bool (*orig_CheckIntegrity)(void* address, size_t size);
-    bool hook_CheckIntegrity(void* address, size_t size) {
-        return true; // Always pass integrity check
-    }
-    
-    // Anti-screenshot detection
-    bool (*orig_IsScreenshotDetected)();
-    bool hook_IsScreenshotDetected() {
-        return false;
-    }
-    
-    // Network traffic obfuscation
-    void ObfuscatePacket(uint8_t* packet, size_t size) {
-        // XOR with random key
-        uint8_t key = (uint8_t)(rand() % 256);
-        for(size_t i = 0; i < size; i++) {
-            packet[i] ^= key;
-        }
-    }
-    
-    // Function name obfuscation
-    template<typename T>
-    T GetObfuscatedFunction(const char* libName, const char* funcName) {
-        // Obfuscate library and function names
-        std::string obfLib = BNM_XOR(libName);
-        std::string obfFunc = BNM_XOR(funcName);
-        
-        void* handle = dlopen(obfLib.c_str(), RTLD_NOW);
-        if(!handle) return nullptr;
-        
-        return (T)dlsym(handle, obfFunc.c_str());
-    }
-    
-    // Anti-analysis delays
+    // Anti-analysis delay
     void AntiAnalysisDelay() {
-        // Random small delays to confuse timing analysis
-        usleep(rand() % 1000);
+        std::this_thread::sleep_for(std::chrono::milliseconds(10 + (rand() % 50)));
     }
     
-    // Code flow obfuscation
-    template<typename Func>
-    auto ObfuscatedCall(Func func) -> decltype(func()) {
-        AntiAnalysisDelay();
-        RandomizeMemory();
-        auto result = func();
-        BreakSignatures();
-        return result;
-    }
-    
-    // Initialize BNM system
+    // Initialize BNM System
     void Initialize() {
-        // Check for debugger
+        srand(time(NULL));
+        
         if(IsDebuggerPresent()) {
             exit(0); // Exit if debugger detected
         }
@@ -178,7 +78,7 @@ namespace BNM {
         // Break signatures
         BreakSignatures();
         
-        LOGI(BNM_XOR("BNM System initialized"));
+        LOGI("%s", BNM_XOR("BNM System initialized").c_str());
     }
     
     // Periodic anti-detection checks

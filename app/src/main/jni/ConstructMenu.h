@@ -403,11 +403,11 @@ void KlelYuim() {
                         ImGui::TextColored(ImVec4(1.00f, 0.80f, 0.00f, 1.00f), "[MOVEMENT]");
                         ImGuiX::DripCheckbox("Speed Hack", &SpeedHack_Enabled);
                         if(SpeedHack_Enabled) {
-                            ImGuiX::SliderFloat("Speed Multiplier", &SpeedMultiplier, 1.0f, 3.0f);
+                            ImGui::SliderFloat("Speed Multiplier", &SpeedMultiplier, 1.0f, 3.0f);
                         }
                         ImGuiX::DripCheckbox("Spin Boot (360°)", &SpinBoot_Enabled);
                         if(SpinBoot_Enabled) {
-                            ImGuiX::SliderFloat("Spin Speed", &SpinBootSpeed, 360.0f, 1440.0f);
+                            ImGui::SliderFloat("Spin Speed", &SpinBootSpeed, 360.0f, 1440.0f);
                         }
                         ImGui::Spacing();
                         
@@ -415,7 +415,7 @@ void KlelYuim() {
                         ImGui::TextColored(ImVec4(1.00f, 0.80f, 0.00f, 1.00f), "[CAMERA & AIM]");
                         ImGuiX::DripCheckbox("Zoom Hack", &ZoomHack_Enabled);
                         if(ZoomHack_Enabled) {
-                            ImGuiX::SliderFloat("Zoom Multiplier", &ZoomMultiplier, 1.0f, 5.0f);
+                            ImGui::SliderFloat("Zoom Multiplier", &ZoomMultiplier, 1.0f, 5.0f);
                         }
                         // Wide FOV removed - unreliable
                         // Aim Assist removed - needs testing

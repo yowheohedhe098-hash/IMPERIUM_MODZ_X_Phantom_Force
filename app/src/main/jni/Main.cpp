@@ -6,21 +6,17 @@
 #include <dlfcn.h>
 #include <list>
 #include <vector>
-#include <unistd.h>
 #include <fstream>
 #include <iostream>
 #include <fcntl.h>
 #include <linux/ptrace.h>
 #include <sys/ptrace.h>
 #include <sys/wait.h>
-#include <dlfcn.h>
 #include <sys/system_properties.h>
 #include <EGL/egl.h>
 #include <GLES3/gl3.h>
 #include <KittyMemory/KittyScanner.h>
 #include <KittyMemory/KittyUtils.h>
-#include <pthread.h>
-#include <unistd.h>
 #include "KittyMemory/KittyMemory.h"
 #include "KittyMemory/MemoryPatch.h"
 using namespace KittyMemory;
@@ -38,12 +34,22 @@ using namespace KittyMemory;
 #include "Misc.h"
 #include "zygisk.hpp"
 #include "Hook.h"
-#include "Jni_Stuff.h"
+
 #define ALPHA    ( ImGuiColorEditFlags_AlphaPreview | ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel | ImGuiColorEditFlags_AlphaBar | ImGuiColorEditFlags_InputRGB | ImGuiColorEditFlags_Float | ImGuiColorEditFlags_NoDragDrop | ImGuiColorEditFlags_PickerHueBar | ImGuiColorEditFlags_NoBorder )
 #define NO_ALPHA ( ImGuiColorEditFlags_NoTooltip    | ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel | ImGuiColorEditFlags_NoAlpha | ImGuiColorEditFlags_InputRGB | ImGuiColorEditFlags_Float | ImGuiColorEditFlags_NoDragDrop | ImGuiColorEditFlags_PickerHueBar | ImGuiColorEditFlags_NoBorder )
 
-JavaVM *jvm1 = nullptr;
+JavaVM *jvm = nullptr;
+JavaVM *jvm1 = nullptr; // Define jvm1 to satisfy external references
 jobject g_Activity = nullptr;
+
+ProcMap _Libil2cpp, _Libunity;
+
+// Global variables needed by Jni_Stuff.h and other files
+std::string g_Token, g_Auth;
+bool bValid = false;
+std::string EXP = "";
+std::string UUID = "";
+bool IsEverythingLoad = false;
 
 // IMPERIUM MODZ X Phantom Force - New Features (MUST BE BEFORE ConstructMenu.h)
 #include "BNM_System.h"
@@ -51,6 +57,7 @@ jobject g_Activity = nullptr;
 #include "ImperiumFinal_WORKING.h"
 
 #include "ConstructMenu.h"
+#include "Jni_Stuff.h"
 #include "ImGui/Call_ImGui.h"
 #include "Includes/hide.h"
 
@@ -63,6 +70,7 @@ DobbyHook((void*)Il2CppGetMethodOffset(OBFUSCATE(assembly), OBFUSCATE(namespaceN
 
 void ResolveGameActivity(JNIEnv* env) {
     if (g_Activity != nullptr) return;
+    LOGI("Resolving Game Activity...");
 
     jclass activityThreadClass = env->FindClass("android/app/ActivityThread");
     if (activityThreadClass) {
@@ -73,6 +81,7 @@ void ResolveGameActivity(JNIEnv* env) {
             jobject app = env->CallObjectMethod(at, getApplication);
             if (app) {
                 g_Activity = env->NewGlobalRef(app);
+                LOGI("Activity resolved via ActivityThread");
                 return;
             }
         }
@@ -81,201 +90,67 @@ void ResolveGameActivity(JNIEnv* env) {
     jclass unityPlayerClass = env->FindClass("com/unity3d/player/UnityPlayer");
     if (unityPlayerClass) {
         jfieldID currentActivityField = env->GetStaticFieldID(unityPlayerClass, "currentActivity", "Landroid/app/Activity;");
-        jobject act = env->GetStaticObjectField(unityPlayerClass, currentActivityField);
-        if (act) {
-            g_Activity = env->NewGlobalRef(act);
+        if (currentActivityField) {
+            jobject act = env->GetStaticObjectField(unityPlayerClass, currentActivityField);
+            if (act) {
+                g_Activity = env->NewGlobalRef(act);
+                LOGI("Activity resolved via UnityPlayer");
+            }
         }
     }
 }
-
-bool g_IsGameReady = false;
-
-/*bool (*_MPMatch)(void* _this);
-bool MPMatch(void* _this) {
-    if (func_ghost) {
-        return false;
-    }
-    return _MPMatch(_this);
-}*/
-void patchLib(const char* libName, uintptr_t offset, const char* hex) {
-ProcMap lib;
-do {
-lib = KittyMemory::getLibraryBaseMap(libName);
-sleep(1);
-} while (!lib.isValid());
-MemoryPatch::createWithHex(lib, offset, hex).Modify();
-}
-
-bool (*ResetGuest)(void* _this);
-bool _ResetGuest(void* _this) {
-    if (Guest) {
-        return true;
-    }
-    return ResetGuest(_this);
-}
-bool (*_ShowWeaponSkin)(void* _this);
-bool ShowWeaponSkin(void* _this) {
-        return true;
-}
-bool (*_ShowWeaponSkin1)(void* _this);
-bool ShowWeaponSkin1(void* _this) {
-        return false;
-}
-/*void (*_RET)(void *instance);
-void RET(void *instance) {
-    return;
-}*/
-bool (*_False)(void *Player);
-bool False(void *Player) {
-return false;
-}
-int (*_GetSystemPhysicalMemory)(void*_this, int value);
-int GetSystemPhysicalMemory(void*_this, int value) {
-return (int) 10000;
-}
-int (*_GetPhysXState)(void*_this, int value);
-int GetPhysXState(void*_this, int value){
-    if (_this != NULL) {        
-        if (FlyUpBR) {
-            return valueBr;
-        }
-        return _GetPhysXState(_this, value);
-    }    
-    return 0; 
-}
-void (*_EPhysXState)(void*_this, int value);
-
-void EPhysXState(void*_this, int value){
-    if (_this != NULL) {
-        if(FlyUpBR) {
-            _EPhysXState(_this, valueBr1); 
-            return;
-        }
-        _EPhysXState(_this, value);
-    }
-}
-bool (*orig_IsPoseFallingHigh)(void *Player);
-bool hook_IsPoseFallingHigh(void *Player){
-return true;
-}
-
-bool g_IsEmulatorReady = false;
-bool IsEverythingLoad = false;
-
-bool (*PCcheck) ();
-bool _PCcheck() {
-    IsEverythingLoad = true;
-    
-    return false;
-}
-
-ProcMap _Libil2cpp, _Libunity;
 
 void *hack_thread(void *arg){
-    while (!_Libil2cpp.isValid() || !_Libunity.isValid()) {
+    LOGI("Hack thread started, waiting for libraries...");
+    
+    int retry = 0;
+    while (retry < 60) {
         _Libil2cpp = KittyMemory::getLibraryBaseMap("libil2cpp.so");
         _Libunity = KittyMemory::getLibraryBaseMap("libunity.so");
+        if (_Libil2cpp.isValid() && _Libunity.isValid()) break;
         sleep(1);
-   }
-   
-   sleep(3); 
-
-   Il2CppAttach();
-
-   DobbyHook((void *)Il2CppGetMethodOffset(OBFUSCATE("Assembly-CSharp.dll"), OBFUSCATE("COW"), OBFUSCATE("GameFacade"), OBFUSCATE("IsEmulator"), 0), (void *) &_PCcheck, (void **) & PCcheck);
-   
-   // Install IMPERIUM MODZ hooks (ONLY WORKING FEATURES)
-   LOGI("Installing IMPERIUM MODZ X Phantom Force...");
-   InstallWorkingHooks();
-   LOGI("IMPERIUM MODZ loaded successfully!");
-
-DobbyHook((void *) DobbySymbolResolver(OBFUSCATE("/system/lib/libEGL.so"), OBFUSCATE("eglSwapBuffers")), (void *) _eglSwapBuffers1, (void **) &orig_eglSwapBuffers1);
-DobbyHook((void *) DobbySymbolResolver(OBFUSCATE("/system/lib/libandroid.so"), OBFUSCATE("ANativeWindow_getWidth")), (void *) _ANativeWindow_getWidth, (void **) &orig_ANativeWindow_getWidth);
-DobbyHook((void *) DobbySymbolResolver(OBFUSCATE("/system/lib/libandroid.so"), OBFUSCATE("ANativeWindow_getHeight")), (void *) _ANativeWindow_getHeight, (void **) &orig_ANativeWindow_getHeight);
-DobbyHook((void *) DobbySymbolResolver(OBFUSCATE("/system/lib/libandroid.so"), OBFUSCATE("AConfiguration_getDensity")), (void *) _AConfiguration_getDensity, (void **) &orig_AConfiguration_getDensity);
-// KLEL-YUIM
-KLYUIM("Assembly-CSharp.dll", "COW", "GameConfig", "get_ResetGuest", 0, _ResetGuest, ResetGuest);
-KLYUIM("UnityEngine.dll", "UnityEngine", "Input", "GetTouch", 1, GetTouch, old_GetTouch);
-
-KLYUIM("Assembly-CSharp.dll", "COW.GamePlay", "Player", "ShowWeaponSkin", 0, ShowWeaponSkin, _ShowWeaponSkin);
-KLYUIM("Assembly-CSharp.dll", "COW.GamePlay", "Player", "IsWeaponSkinABStatusA", 0, ShowWeaponSkin1, _ShowWeaponSkin1);
-KLYUIM("Assembly-CSharp.dll", "COW.GamePlay", "Player", "NeedWeaponSkinFireSound", 0, ShowWeaponSkin1, _ShowWeaponSkin1);
-KLYUIM("Assembly-CSharp.dll", "COW.GamePlay", "Player", "UpdateBehavior", 2, _LateUpdate, LateUpdate);
-//KLYUIM("Assembly-CSharp.dll", "COW.GamePlay", "Player", "UpdateBehavior", 2, _LateUpdateSilent, LateUpdateSilent);
-// Fly Hack
-KLYUIM("Assembly-CSharp.dll", "COW.GamePlay", "Player", "IsIgnoreHighFalling", 0, hook_IsPoseFallingHigh, orig_IsPoseFallingHigh);
-KLYUIM("Assembly-CSharp.dll", "COW.GamePlay", "Player", "get_IsPoseFallingHigh", 0, hook_IsPoseFallingHigh, orig_IsPoseFallingHigh);
-KLYUIM("Assembly-CSharp.dll", "COW.GamePlay", "Player", "OnStopCatapultFalling", 0, hook_IsPoseFallingHigh, orig_IsPoseFallingHigh);
-KLYUIM("Assembly-CSharp.dll", "", "PhysXData", "get_IsJumpPadFalling", 0, hook_IsPoseFallingHigh, orig_IsPoseFallingHigh);
-KLYUIM("Assembly-CSharp.dll", "", "PhysXData", "get_IsSkateboardJumping", 0, hook_IsPoseFallingHigh, orig_IsPoseFallingHigh);
-KLYUIM("Assembly-CSharp.dll", "", "PhysXData", "get_IsSlideFalling", 0, hook_IsPoseFallingHigh, orig_IsPoseFallingHigh);
-KLYUIM("Assembly-CSharp.dll", "COW.GamePlay", "Player", "GetPhysXState", 0, GetPhysXState, _GetPhysXState);
-
-if (offset_NeedSendMessage != 0) {
-        DobbyHook(
-            (void *)offset_NeedSendMessage,
-            (void *)hook_NeedSendMessage,
-            (void **)&orig_NeedSendMessage
-        );
+        retry++;
     }
-    
-    DobbyHook(Il2CppGetMethodOffset(OBFUSCATE("Assembly-CSharp.dll"), OBFUSCATE("COW.GamePlay"), OBFUSCATE("GPBDEDFKJNA"), OBFUSCATE("BLAGCMCGEJG"), 1), (void *) BLAGCMCGEJG1,(void **) &old_BLAGCMCGEJG1);
-    
-    DobbyHook(Il2CppGetMethodOffset(OBFUSCATE("Assembly-CSharp.dll"), OBFUSCATE("COW.GamePlay"), OBFUSCATE("PlayerNetwork"), OBFUSCATE("TakeDamage"), 9), (void *) &hook_PlayerNetwork_TakeDamage, (void **) &orig_PlayerNetwork_TakeDamage);
-    
-    DobbyHook(Il2CppGetMethodOffset(OBFUSCATE("Assembly-CSharp.dll"), OBFUSCATE("COW.GamePlay"), OBFUSCATE("GPBDEDFKJNA"), OBFUSCATE("BLAGCMCGEJG"), 1), (void *) BLAGCMCGEJG1kill,(void **) &old_BLAGCMCGEJG1kill);
-    
-    DobbyHook(Il2CppGetMethodOffset(OBFUSCATE("Assembly-CSharp.dll"), OBFUSCATE("COW.GamePlay"), OBFUSCATE("PlayerNetwork"), OBFUSCATE("TakeDamage"), 9), (void *) &hook_PlayerNetwork_TakeDamagekill, (void **) &orig_PlayerNetwork_TakeDamagekill);
-    
-    DobbyHook(
-        (void *)Il2CppGetMethodOffset(OBFUSCATE("Assembly-CSharp.dll"), OBFUSCATE("COW"), OBFUSCATE("GrenadeLine"), OBFUSCATE("Update"), 0), 
-        (void *)_UpdateGranada, 
-        (void **)&UpdateGranada
-    );
 
-    DobbyHook(
-        (void *)Il2CppGetMethodOffset(OBFUSCATE("Assembly-CSharp.dll"), OBFUSCATE("COW"), OBFUSCATE("GrenadeLine"), OBFUSCATE("OnShowGrenadeLineChanged"), 0), 
-        (void *)_UpdateGranada, 
-        (void **)&UpdateGranada
-    );
-    
-    DobbyHook(
-    (void *)Il2CppGetMethodOffset(OBFUSCATE("Assembly-CSharp.dll"), OBFUSCATE("COW.GamePlay"), OBFUSCATE("Player"), OBFUSCATE("GetCurrentDashSpeed"), 0),
-    (void *)hook_GetCurrentDashSpeed,
-    (void **)&old_GetCurrentDashSpeed);
-    
-    DobbyHook(
-        (void *)Il2CppGetMethodOffset(OBFUSCATE("Assembly-CSharp.dll"), OBFUSCATE("COW"), OBFUSCATE("GameSettingData"), OBFUSCATE("IsHighFPS120Open"), 0),
-        (void *)hook_IsHighFPS120Open,
-        (void **)&orig_IsHighFPS120Open
-    );
-    
-    //DobbyHook(Il2CppGetMethodOffset(OBFUSCATE("Assembly-CSharp.dll"), OBFUSCATE("COW"), OBFUSCATE("ServiceConnectionManager"), OBFUSCATE("SendMessageToLobby"), 5), (void *)_SendMessageToLobby, (void**)&orig_SendMessageToLobby);
-    
-    //DobbyHook(Il2CppGetMethodOffset(OBFUSCATE("Assembly-CSharp.dll"), OBFUSCATE("COW"), OBFUSCATE("UIModelUser"), OBFUSCATE("get_UserLevel"), 0), (void*) &_get_UserLevel, (void**) &get_UserLevel);
-    //DobbyHook(Il2CppGetMethodOffset(OBFUSCATE("Assembly-CSharp.dll"), OBFUSCATE("COW"), OBFUSCATE("UIModelUser"), OBFUSCATE("get_UserExp"), 0), (void*) &_get_UserExp, (void**) &get_UserExp);
-                                            
-/*Pathghost = MemoryPatch::createWithHex(((uintptr_t)Il2CppGetMethodOffset(OBFUSCATE("Assembly-CSharp.dll"), OBFUSCATE("COW.GamePlay"), OBFUSCATE("MPMatch") , OBFUSCATE("NeedSendMessage"), 1)) ,"00 00 80 D2 C0 03 5F D6");*/
+    if (!_Libil2cpp.isValid()) {
+        LOGE("libil2cpp.so not found after 60s! Aborting.");
+        return nullptr;
+    }
 
-//DobbyHook((void *)PhimSetNhatban(0x4994188), (void *)EPhysXState, (void **)&_EPhysXState);
+    LOGI("Libraries found! libil2cpp at %p", (void*)_Libil2cpp.startAddress);
+    sleep(5); // Wait for il2cpp to initialize fully
 
-   return nullptr;
+    Il2CppAttach();
+    LOGI("Il2Cpp attached.");
+
+    // Install IMPERIUM MODZ hooks
+    LOGI("Installing IMPERIUM MODZ X Phantom Force...");
+    InstallWorkingHooks();
+    
+    LOGI("Installing system hooks...");
+    void* eglSwap = DobbySymbolResolver(OBFUSCATE("/system/lib64/libEGL.so"), OBFUSCATE("eglSwapBuffers"));
+    if (!eglSwap) eglSwap = DobbySymbolResolver(OBFUSCATE("/system/lib/libEGL.so"), OBFUSCATE("eglSwapBuffers"));
+    
+    if (eglSwap) {
+        DobbyHook(eglSwap, (void *) _eglSwapBuffers1, (void **) &orig_eglSwapBuffers1);
+        LOGI("eglSwapBuffers hooked.");
+    }
+
+    IsEverythingLoad = true;
+    LOGI("IMPERIUM MODZ loaded successfully!");
+    return nullptr;
 }
-__attribute__((constructor))
-void lib_main() {
-
-}
-REGISTER_ZYGISK_MODULE(MyModule)
-REGISTER_ZYGISK_COMPANION(companion_handler)
 
 extern "C" {
     JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
+        jvm = vm;
         jvm1 = vm;
         JNIEnv *env;
         if (vm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6) != JNI_OK) {
             return JNI_FALSE;
         }
 
+        LOGI("JNI_OnLoad called");
         ResolveGameActivity(env);
 
         pthread_t ptid;
